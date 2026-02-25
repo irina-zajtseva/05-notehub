@@ -1,5 +1,5 @@
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
-import { useState } from "react";
+import { useState, type ChangeEvent } from "react";
 import { useDebouncedCallback } from "use-debounce";
 
 import css from "./App.module.css";
@@ -16,18 +16,15 @@ import { Toaster } from "react-hot-toast";
 
 const PER_PAGE = 12;
 
-function App() {
+export default function App() {
   const [query, setQuery] = useState("");
   const [page, setPage] = useState(1);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
-  const updateQuery = useDebouncedCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
-      setQuery(e.target.value);
-      setPage(1);
-    },
-    1000,
-  );
+  const updateQuery = useDebouncedCallback((e: ChangeEvent<HTMLInputElement>) => {
+    setQuery(e.target.value);
+    setPage(1);
+  }, 1000);
 
   const { data, isLoading, isError, isSuccess } = useQuery({
     queryKey: ["notes", query, page],
@@ -52,7 +49,7 @@ function App() {
         <header className={css.toolbar}>
           <SearchBox onSearch={updateQuery} />
 
-          {totalPages > 1 && (
+          {isSuccess && totalPages > 1 && (
             <Pagination
               totalPages={totalPages}
               page={page}
@@ -60,7 +57,7 @@ function App() {
             />
           )}
 
-          <button className={css.button} onClick={handleOpenCreateModal}>
+          <button className={css.button} type="button" onClick={handleOpenCreateModal}>
             Create note +
           </button>
         </header>
@@ -85,5 +82,3 @@ function App() {
     </>
   );
 }
-
-export default App;
