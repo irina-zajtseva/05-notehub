@@ -1,32 +1,25 @@
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import { useState } from "react";
+import { useDebouncedCallback } from "use-debounce";
+
+import css from "./App.module.css";
+
 import { fetchNotes } from "../../services/noteService";
 import NoteList from "../NoteList/NoteList";
 import Pagination from "../Pagination/Pagination";
-import css from "./App.module.css";
-import { useState } from "react";
 import Modal from "../Modal/Modal";
 import NoteForm from "../NoteForm/NoteForm";
-import { Toaster } from "react-hot-toast";
-import { useDebouncedCallback } from "use-debounce";
 import Loader from "../Loader/Loader";
 import ErrorMessage from "../ErrorMessage/ErrorMessage";
 import SearchBox from "../SearchBox/SearchBox";
-import EditPostForm from "../EditPostForm/EditPostForm";
-import type { Note } from "../../types/note";
+import { Toaster } from "react-hot-toast";
+
+const PER_PAGE = 12;
 
 function App() {
   const [query, setQuery] = useState("");
   const [page, setPage] = useState(1);
-  const [selectedNote, setSelectedNote] = useState<Note | null>(null);
-
-  type ModalType = "create" | "edit" | null;
-  const [isVisible, setIsVisible] = useState<ModalType>(null);
-
-  const { data, isLoading, isError, isSuccess } = useQuery({
-    queryKey: ["notes", query, page],
-    queryFn: () => fetchNotes(query, page),
-    placeholderData: keepPreviousData,
-  });
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
   const updateQuery = useDebouncedCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -36,25 +29,29 @@ function App() {
     1000,
   );
 
-  const notes = data?.notes || [];
+  const { data, isLoading, isError, isSuccess } = useQuery({
+    queryKey: ["notes", query, page],
+    queryFn: () =>
+      fetchNotes({
+        search: query.trim() || undefined,
+        page,
+        perPage: PER_PAGE,
+      }),
+    placeholderData: keepPreviousData,
+  });
+
+  const notes = data?.notes ?? [];
   const totalPages = data?.totalPages ?? 1;
 
-  const handleOpenCreateModal = () => {
-    setIsVisible("create");
-  };
-  const handleOpenEditModal = (note: Note) => {
-    setSelectedNote(note);
-    setIsVisible("edit");
-  };
+  const handleOpenCreateModal = () => setIsCreateModalOpen(true);
+  const handleCloseModal = () => setIsCreateModalOpen(false);
 
-  const handleCloseModal = () => {
-    setIsVisible(null);
-  };
   return (
     <>
       <div className={css.app}>
         <header className={css.toolbar}>
           <SearchBox onSearch={updateQuery} />
+
           {totalPages > 1 && (
             <Pagination
               totalPages={totalPages}
@@ -62,26 +59,28 @@ function App() {
               onPageChange={setPage}
             />
           )}
+
           <button className={css.button} onClick={handleOpenCreateModal}>
             Create note +
           </button>
         </header>
+
         {isLoading && <Loader />}
         {isError && <ErrorMessage />}
-        {notes.length > 0 && isSuccess && (
-          <NoteList notes={notes} onEdit={handleOpenEditModal} />
+
+        {isSuccess && notes.length === 0 && query.trim() !== "" && (
+          <p>No matches for your query</p>
         )}
+
+        {isSuccess && notes.length > 0 && <NoteList notes={notes} />}
       </div>
-      {isVisible === "create" && (
+
+      {isCreateModalOpen && (
         <Modal onClose={handleCloseModal}>
           <NoteForm onClose={handleCloseModal} />
         </Modal>
       )}
-      {isVisible === "edit" && selectedNote && (
-        <Modal onClose={handleCloseModal}>
-          <EditPostForm note={selectedNote} onClose={handleCloseModal} />
-        </Modal>
-      )}
+
       <Toaster position="top-right" />
     </>
   );
